@@ -6,8 +6,19 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A8B4E8462EFEDA57004D4922 /* GlobalKeyListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8B4E8452EFEDA57004D4922 /* GlobalKeyListener.swift */; };
+		A8B4E8482EFEDA73004D4922 /* TextEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8B4E8472EFEDA73004D4922 /* TextEngine.swift */; };
+		A8B4E84A2EFEDAB2004D4922 /* Snippets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8B4E8492EFEDAB2004D4922 /* Snippets.swift */; };
+		A8B4E84C2EFEDADB004D4922 /* StatusBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8B4E84B2EFEDADB004D4922 /* StatusBarController.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		A8B4E8372EFEDA01004D4922 /* KeyExpander.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KeyExpander.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A8B4E8452EFEDA57004D4922 /* GlobalKeyListener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalKeyListener.swift; sourceTree = "<group>"; };
+		A8B4E8472EFEDA73004D4922 /* TextEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextEngine.swift; sourceTree = "<group>"; };
+		A8B4E8492EFEDAB2004D4922 /* Snippets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Snippets.swift; sourceTree = "<group>"; };
+		A8B4E84B2EFEDADB004D4922 /* StatusBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -32,6 +43,10 @@
 		A8B4E82E2EFEDA01004D4922 = {
 			isa = PBXGroup;
 			children = (
+				A8B4E84B2EFEDADB004D4922 /* StatusBarController.swift */,
+				A8B4E8492EFEDAB2004D4922 /* Snippets.swift */,
+				A8B4E8472EFEDA73004D4922 /* TextEngine.swift */,
+				A8B4E8452EFEDA57004D4922 /* GlobalKeyListener.swift */,
 				A8B4E8392EFEDA01004D4922 /* KeyExpander */,
 				A8B4E8382EFEDA01004D4922 /* Products */,
 			);
@@ -119,6 +134,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A8B4E84A2EFEDAB2004D4922 /* Snippets.swift in Sources */,
+				A8B4E84C2EFEDADB004D4922 /* StatusBarController.swift in Sources */,
+				A8B4E8482EFEDA73004D4922 /* TextEngine.swift in Sources */,
+				A8B4E8462EFEDA57004D4922 /* GlobalKeyListener.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
