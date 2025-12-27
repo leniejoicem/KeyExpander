@@ -9,15 +9,22 @@
 import Cocoa
 
 final class GlobalKeyListener {
+    static let shared = GlobalKeyListener(engine: TextEngine.shared)
+
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private let engine: TextEngine
 
-    init(engine: TextEngine) {
+    private var isRunning = false
+
+    private init(engine: TextEngine) {
         self.engine = engine
     }
 
     func start() {
+        guard !isRunning else { return }
+        isRunning = true
+
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         let trusted = AXIsProcessTrustedWithOptions(options)
         print("AX trusted:", trusted)
@@ -37,9 +44,7 @@ final class GlobalKeyListener {
             guard type == .keyDown else { return Unmanaged.passUnretained(event) }
 
             let consumed = listener.handleKeyDown(event)
-            if consumed {
-                return nil
-            }
+            if consumed { return nil }
             return Unmanaged.passUnretained(event)
         }
 
@@ -53,10 +58,11 @@ final class GlobalKeyListener {
         )
 
         guard let eventTap else {
+            isRunning = false
             print("❌ Failed to create event tap.")
             print("✅ Enable BOTH permissions:")
-            print("   Privacy & Security → Accessibility → Keyspand = ON")
-            print("   Privacy & Security → Input Monitoring → Keyspand = ON")
+            print("   Privacy & Security → Accessibility → KeyExpander = ON")
+            print("   Privacy & Security → Input Monitoring → KeyExpander = ON")
             return
         }
 
@@ -70,28 +76,59 @@ final class GlobalKeyListener {
     }
 
     func stop() {
+        guard isRunning else { return }
+        isRunning = false
+
+        if let eventTap {
+            CGEvent.tapEnable(tap: eventTap, enable: false)
+        }
+
         if let runLoopSource {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         }
+
+        if let eventTap {
+            CFMachPortInvalidate(eventTap)
+        }
+
         runLoopSource = nil
         eventTap = nil
+
+        print("⏸️ GlobalKeyListener stopped")
     }
+
+    var running: Bool { isRunning }
 
     private func handleKeyDown(_ event: CGEvent) -> Bool {
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
 
-        if keyCode == 49 {
-            let expanded = engine.handleDelimiter(isNewline: false)
-            return expanded
+        if engine.isCurrentlyExpanding {
+            return false
         }
 
-        if keyCode == 36 {
-            let expanded = engine.handleDelimiter(isNewline: true)
-            return expanded
+        if keyCode == 51 {
+            engine.handleTyped(character: "\u{8}")
+            return false
+        }
+        
+        if keyCode == 49 {
+            if engine.handleDelimiter(isNewline: false) {
+                return true
+            }
+            engine.handleTyped(character: " ")
+            return false
+        }
+
+        if keyCode == 36 || keyCode == 76 {
+            if engine.handleDelimiter(isNewline: true) {
+                return true
+            }
+            engine.handleTyped(character: "\n")
+            return false
         }
 
         if let s = event.unicodeString, !s.isEmpty {
-            engine.handle(typed: s)
+            engine.handleTyped(character: s)
         }
 
         return false
@@ -102,7 +139,11 @@ private extension CGEvent {
     var unicodeString: String? {
         var length = 0
         var buffer = [UniChar](repeating: 0, count: 32)
-        self.keyboardGetUnicodeString(maxStringLength: buffer.count, actualStringLength: &length, unicodeString: &buffer)
+        self.keyboardGetUnicodeString(
+            maxStringLength: buffer.count,
+            actualStringLength: &length,
+            unicodeString: &buffer
+        )
         guard length > 0 else { return nil }
         return String(utf16CodeUnits: buffer, count: length)
     }

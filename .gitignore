@@ -1,3 +1,5 @@
+
+
 # Xcode
 DerivedData/
 *.xcuserstate
@@ -11,4 +13,47 @@ DerivedData/
 
 # Build
 build/
+
+# Xcode
+DerivedData/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Build products
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# User-specific
+*.xcuserstate
+*.xcuserdatad
+UserInterfaceState.xcuserstate
+
+# Swift Package Manager
+.build/
+Package.resolved
+
+# Logs
+*.log
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Secrets / local configs
+.env
+.env.local
+.env.production
+
+# Code coverage
+*.profraw
+*.profdata
 

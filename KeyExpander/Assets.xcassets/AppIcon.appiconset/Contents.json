@@ -1,33 +1,6 @@
 {
   "images" : [
     {
-      "idiom" : "universal",
-      "platform" : "ios",
-      "size" : "1024x1024"
-    },
-    {
-      "appearances" : [
-        {
-          "appearance" : "luminosity",
-          "value" : "dark"
-        }
-      ],
-      "idiom" : "universal",
-      "platform" : "ios",
-      "size" : "1024x1024"
-    },
-    {
-      "appearances" : [
-        {
-          "appearance" : "luminosity",
-          "value" : "tinted"
-        }
-      ],
-      "idiom" : "universal",
-      "platform" : "ios",
-      "size" : "1024x1024"
-    },
-    {
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "16x16"
@@ -58,11 +31,13 @@
       "size" : "128x128"
     },
     {
+      "filename" : "KeyExpander (1).png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "256x256"
     },
     {
+      "filename" : "KeyExpander (2).png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "256x256"
