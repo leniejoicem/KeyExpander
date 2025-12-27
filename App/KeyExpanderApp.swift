@@ -9,22 +9,30 @@ import SwiftUI
 
 @main
 struct KeyExpanderApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-
+    @StateObject private var listenerManager = ListenerManager()
     var body: some Scene {
-        Settings { EmptyView() }
+        WindowGroup {
+            ContentView()
+                .environmentObject(listenerManager)
+        }
     }
+
 }
+
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBarController: StatusBarController?
-    private let engine = TextEngine()
+    private let engine = TextEngine.shared
     private var listener: GlobalKeyListener?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusBarController = StatusBarController()
-        listener = GlobalKeyListener(engine: engine)
-        listener?.start()
+
+        engine.reloadSnippets()
+
+        GlobalKeyListener.shared.start()
+
     }
 }
+
 
