@@ -1,54 +1,42 @@
-
-
-# Xcode
-DerivedData/
-*.xcuserstate
-*.xcuserdata/
-*.moved-aside
-*.xccheckout
-*.xcscmblueprint
-
-# macOS
-.DS_Store
-
-# Build
-build/
-
-# Xcode
-DerivedData/
-*.xcworkspace/xcuserdata/
-*.xcodeproj/xcuserdata/
-*.xcodeproj/project.xcworkspace/xcuserdata/
-
-# Build products
-build/
-*.ipa
-*.dSYM.zip
-*.dSYM
-
 # macOS
 .DS_Store
 .AppleDouble
 .LSOverride
 
-# User-specific
+# Xcode
+DerivedData/
+build/
+_REQ?_.xccheckout
+*.xcscmblueprint
+*.moved-aside
 *.xcuserstate
-*.xcuserdatad
 UserInterfaceState.xcuserstate
+xcuserdata/
+
+# Workspaces / user data inside projects
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
 
 # Swift Package Manager
 .build/
-Package.resolved
+.swiftpm/
+Package.resolved 
+
+# Build artifacts
+*.ipa
+*.dSYM.zip
+*.dSYM
 
 # Logs
 *.log
 
-# Database
+# Local databases (if generated)
 *.sqlite
 *.sqlite3
 *.db
 
-# Secrets / local configs
+# Secrets
 .env
 .env.local
 .env.production
