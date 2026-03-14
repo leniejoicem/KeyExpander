@@ -86,8 +86,8 @@ final class TextEngine {
 
         deleteBackspaces(count: match.trigger.count)
 
-        pasteText(match.content)
-        reinsertDelimiter(isNewline: isNewline)
+        pasteText(sanitizedExpansionText(match.content))
+        reinsertDelimiter(isNewline: isNewline, delay: 0.05)
         recordExpansionUsage(for: match.id)
 
         buffer = ""
@@ -150,9 +150,19 @@ final class TextEngine {
         }
     }
 
-    private func reinsertDelimiter(isNewline: Bool) {
+    private func sanitizedExpansionText(_ text: String) -> String {
+        text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .joined(separator: "\n")
+    }
+
+    private func reinsertDelimiter(isNewline: Bool, delay: TimeInterval = 0) {
         let keyCode: CGKeyCode = isNewline ? 36 : 49
-        pressKey(keyCode: keyCode)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.pressKey(keyCode: keyCode)
+        }
     }
 
     private func recordExpansionUsage(for id: Int64) {
