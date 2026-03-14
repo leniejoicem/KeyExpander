@@ -9,25 +9,51 @@
 import Cocoa
 
 final class TextEngine {
+    private struct CachedSnippet {
+        let id: Int64
+        let trigger: String
+        let content: String
+        let caseSensitive: Bool
+    }
+
     static let shared = TextEngine()
 
     private let repo = SnippetRepository()
-    private var cache: [String: String] = [:]
+    private var cache: [CachedSnippet] = []
 
     private var buffer = ""
     private var isExpanding = false
+
     var isEnabled = true
     var isCurrentlyExpanding: Bool { isExpanding }
+
+    private init() {
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.buffer = ""
+        }
+    }
 
     func reloadSnippets() {
         do {
             let items = try repo.fetchAll()
-            cache = Dictionary(uniqueKeysWithValues: items.map { ($0.trigger, $0.content) })
-            print("✅ Loaded \(cache.count) snippets into cache")
+            cache = items
+                .filter { $0.isEnabled }
+                .map {
+                    CachedSnippet(
+                        id: $0.id,
+                        trigger: $0.trigger,
+                        content: $0.content,
+                        caseSensitive: $0.caseSensitive
+                    )
+                }
+            print("✅ Loaded \(cache.count) enabled snippets into cache")
         } catch {
             print("❌ Failed to load snippets:", error)
         }
-        
     }
 
     func handleTyped(character: String) {
@@ -39,44 +65,46 @@ final class TextEngine {
         }
 
         buffer.append(character)
-        if buffer.count > 300 { buffer.removeFirst(buffer.count - 300) }
+        if buffer.count > 300 {
+            buffer.removeFirst(buffer.count - 300)
+        }
     }
 
     func handleDelimiter(isNewline: Bool) -> Bool {
         guard isEnabled, !isExpanding else { return false }
 
-        let lowered = buffer.lowercased()
-
-        let keys = cache.keys
-            .filter { $0.hasPrefix(";") }
-            .sorted { $0.count > $1.count }
         print("🔎 buffer:", buffer)
-        print("🔎 keys:", cache.keys)
+        print("🔎 keys:", cache.map(\.trigger))
 
+        let sortedSnippets = cache.sorted { $0.trigger.count > $1.trigger.count }
 
-        guard let matchKey = keys.first(where: { lowered.hasSuffix($0.lowercased()) }) else {
-            return false
-        }
-
-        guard let expansion = cache[matchKey] else {
+        guard let match = sortedSnippets.first(where: matchesCurrentBuffer) else {
             return false
         }
 
         isExpanding = true
 
-        deleteBackspaces(count: matchKey.count)
+        deleteBackspaces(count: match.trigger.count)
 
-        typeText(expansion)
-
-        if isNewline {
-            pressKey(keyCode: 36)
-        } else {
-            pressKey(keyCode: 49)
-        }
+        pasteText(match.content)
+        reinsertDelimiter(isNewline: isNewline)
+        recordExpansionUsage(for: match.id)
 
         buffer = ""
-        isExpanding = false
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.isExpanding = false
+        }
+
         return true
+    }
+
+    private func matchesCurrentBuffer(_ snippet: CachedSnippet) -> Bool {
+        if snippet.caseSensitive {
+            return buffer.hasSuffix(snippet.trigger)
+        }
+
+        return buffer.lowercased().hasSuffix(snippet.trigger.lowercased())
     }
 
     private func deleteBackspaces(count: Int) {
@@ -86,27 +114,60 @@ final class TextEngine {
         }
     }
 
-    private func typeText(_ text: String) {
+    private func pasteText(_ text: String) {
+        let pasteboard = NSPasteboard.general
+        let previousItems = pasteboard.pasteboardItems
+
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+
         let src = CGEventSource(stateID: .combinedSessionState)
 
-        for scalar in text.unicodeScalars {
-            var chars = [UniChar(scalar.value)]
+        let cmdDown = CGEvent(keyboardEventSource: src, virtualKey: 55, keyDown: true) // command
+        let vDown = CGEvent(keyboardEventSource: src, virtualKey: 9, keyDown: true)     // v
+        vDown?.flags = .maskCommand
 
-            if let down = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: true) {
-                down.keyboardSetUnicodeString(stringLength: chars.count, unicodeString: &chars)
-                down.post(tap: .cghidEventTap)
+        let vUp = CGEvent(keyboardEventSource: src, virtualKey: 9, keyDown: false)
+        vUp?.flags = .maskCommand
+
+        let cmdUp = CGEvent(keyboardEventSource: src, virtualKey: 55, keyDown: false)
+
+        cmdDown?.post(tap: .cghidEventTap)
+        vDown?.post(tap: .cghidEventTap)
+        vUp?.post(tap: .cghidEventTap)
+        cmdUp?.post(tap: .cghidEventTap)
+
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            pasteboard.clearContents()
+            previousItems?.forEach { item in
+                for type in item.types {
+                    if let value = item.data(forType: type) {
+                        pasteboard.setData(value, forType: type)
+                    }
+                }
             }
-            if let up = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: false) {
-                up.keyboardSetUnicodeString(stringLength: chars.count, unicodeString: &chars)
-                up.post(tap: .cghidEventTap)
-            }
+        }
+    }
+
+    private func reinsertDelimiter(isNewline: Bool) {
+        let keyCode: CGKeyCode = isNewline ? 36 : 49
+        pressKey(keyCode: keyCode)
+    }
+
+    private func recordExpansionUsage(for id: Int64) {
+        do {
+            try repo.incrementUsage(id: id)
+            NotificationCenter.default.post(name: .snippetsDidChange, object: nil)
+        } catch {
+            print("❌ Failed to increment usage:", error)
         }
     }
 
     private func pressKey(keyCode: CGKeyCode) {
         let src = CGEventSource(stateID: .combinedSessionState)
         let down = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: true)
-        let up   = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: false)
+        let up = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: false)
         down?.post(tap: .cghidEventTap)
         up?.post(tap: .cghidEventTap)
     }
