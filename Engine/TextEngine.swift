@@ -86,7 +86,7 @@ final class TextEngine {
 
         deleteBackspaces(count: match.trigger.count)
 
-        pasteText(match.content)
+        pasteText(sanitizedExpansionText(match.content))
         reinsertDelimiter(isNewline: isNewline)
         recordExpansionUsage(for: match.id)
 
@@ -148,6 +148,14 @@ final class TextEngine {
                 }
             }
         }
+    }
+
+    private func sanitizedExpansionText(_ text: String) -> String {
+        text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .joined(separator: "\n")
     }
 
     private func reinsertDelimiter(isNewline: Bool) {
