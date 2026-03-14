@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A80695542F64FCDA000EFE55 /* AppTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = A80695532F64FCDA000EFE55 /* AppTypography.swift */; };
 		A85345522EFFC6540068A87F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A85345502EFFC6540068A87F /* ContentView.swift */; };
 		A85345532EFFC6540068A87F /* KeyExpanderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A85345512EFFC6540068A87F /* KeyExpanderApp.swift */; };
 		A85345572EFFC7210068A87F /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = A85345562EFFC7210068A87F /* SQLite */; };
@@ -22,12 +23,15 @@
 		A85345742EFFD74A0068A87F /* NewCategorySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A85345732EFFD74A0068A87F /* NewCategorySheet.swift */; };
 		A85345762EFFD7510068A87F /* NewSnippetSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A85345752EFFD7510068A87F /* NewSnippetSheet.swift */; };
 		A853457B2EFFFD470068A87F /* ListenerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A853457A2EFFFD470068A87F /* ListenerManager.swift */; };
+		A88A41D52F64D69D00C1D450 /* EditCategorySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A88A41D42F64D69200C1D450 /* EditCategorySheet.swift */; };
+		A88A41DB2F64DBB000C1D450 /* PermissionGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A88A41DA2F64DBA000C1D450 /* PermissionGateView.swift */; };
 		A8B4E8462EFEDA57004D4922 /* GlobalKeyListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8B4E8452EFEDA57004D4922 /* GlobalKeyListener.swift */; };
 		A8B4E8482EFEDA73004D4922 /* TextEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8B4E8472EFEDA73004D4922 /* TextEngine.swift */; };
 		A8B4E84C2EFEDADB004D4922 /* StatusBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8B4E84B2EFEDADB004D4922 /* StatusBarController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		A80695532F64FCDA000EFE55 /* AppTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTypography.swift; sourceTree = "<group>"; };
 		A85345502EFFC6540068A87F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A85345512EFFC6540068A87F /* KeyExpanderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyExpanderApp.swift; sourceTree = "<group>"; };
 		A853455B2EFFC7710068A87F /* Snippet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Snippet.swift; sourceTree = "<group>"; };
@@ -42,6 +46,8 @@
 		A85345732EFFD74A0068A87F /* NewCategorySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewCategorySheet.swift; sourceTree = "<group>"; };
 		A85345752EFFD7510068A87F /* NewSnippetSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewSnippetSheet.swift; sourceTree = "<group>"; };
 		A853457A2EFFFD470068A87F /* ListenerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenerManager.swift; sourceTree = "<group>"; };
+		A88A41D42F64D69200C1D450 /* EditCategorySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditCategorySheet.swift; sourceTree = "<group>"; };
+		A88A41DA2F64DBA000C1D450 /* PermissionGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionGateView.swift; sourceTree = "<group>"; };
 		A8B4E8372EFEDA01004D4922 /* KeyExpander.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KeyExpander.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A8B4E8452EFEDA57004D4922 /* GlobalKeyListener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalKeyListener.swift; sourceTree = "<group>"; };
 		A8B4E8472EFEDA73004D4922 /* TextEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextEngine.swift; sourceTree = "<group>"; };
@@ -105,12 +111,15 @@
 		A853455F2EFFC8670068A87F /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				A88A41DA2F64DBA000C1D450 /* PermissionGateView.swift */,
+				A88A41D42F64D69200C1D450 /* EditCategorySheet.swift */,
 				A85345752EFFD7510068A87F /* NewSnippetSheet.swift */,
 				A85345732EFFD74A0068A87F /* NewCategorySheet.swift */,
 				A85345712EFFD7380068A87F /* SnippetEditorView.swift */,
 				A853456D2EFFD71F0068A87F /* SnippetListView.swift */,
 				A853456B2EFFD7150068A87F /* SidebarView.swift */,
 				A85345502EFFC6540068A87F /* ContentView.swift */,
+				A80695532F64FCDA000EFE55 /* AppTypography.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -207,7 +216,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2620;
-				LastUpgradeCheck = 2620;
+				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					A8B4E8362EFEDA01004D4922 = {
 						CreatedOnToolsVersion = 26.2;
@@ -260,6 +269,7 @@
 				A853456E2EFFD71F0068A87F /* SnippetListView.swift in Sources */,
 				A85345622EFFCA4F0068A87F /* Snippet.swift in Sources */,
 				A8B4E84C2EFEDADB004D4922 /* StatusBarController.swift in Sources */,
+				A88A41D52F64D69D00C1D450 /* EditCategorySheet.swift in Sources */,
 				A853457B2EFFFD470068A87F /* ListenerManager.swift in Sources */,
 				A85345522EFFC6540068A87F /* ContentView.swift in Sources */,
 				A85345532EFFC6540068A87F /* KeyExpanderApp.swift in Sources */,
@@ -268,6 +278,8 @@
 				A853456C2EFFD7150068A87F /* SidebarView.swift in Sources */,
 				A8B4E8462EFEDA57004D4922 /* GlobalKeyListener.swift in Sources */,
 				A85345722EFFD7380068A87F /* SnippetEditorView.swift in Sources */,
+				A80695542F64FCDA000EFE55 /* AppTypography.swift in Sources */,
+				A88A41DB2F64DBB000C1D450 /* PermissionGateView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -308,7 +320,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = L6U2HDSKM9;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -330,6 +344,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -369,7 +384,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = L6U2HDSKM9;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -384,6 +401,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -396,8 +414,8 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = L6U2HDSKM9;
-				ENABLE_APP_SANDBOX = YES;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -441,8 +459,8 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = L6U2HDSKM9;
-				ENABLE_APP_SANDBOX = YES;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
