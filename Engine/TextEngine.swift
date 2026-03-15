@@ -16,6 +16,16 @@ final class TextEngine {
         let caseSensitive: Bool
     }
 
+    private struct PasteboardSnapshotItem {
+        let representations: [(type: NSPasteboard.PasteboardType, data: Data)]
+    }
+
+    private struct PasteboardSnapshot {
+        let changeCount: Int
+        let string: String?
+        let items: [PasteboardSnapshotItem]
+    }
+
     static let shared = TextEngine()
 
     private let repo = SnippetRepository()
@@ -116,7 +126,7 @@ final class TextEngine {
 
     private func pasteText(_ text: String) {
         let pasteboard = NSPasteboard.general
-        let previousItems = pasteboard.pasteboardItems
+        let snapshot = makePasteboardSnapshot(from: pasteboard)
 
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
@@ -139,15 +149,57 @@ final class TextEngine {
 
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            pasteboard.clearContents()
-            previousItems?.forEach { item in
-                for type in item.types {
-                    if let value = item.data(forType: type) {
-                        pasteboard.setData(value, forType: type)
-                    }
-                }
-            }
+            self.restorePasteboard(snapshot, to: pasteboard)
         }
+    }
+
+    private func makePasteboardSnapshot(from pasteboard: NSPasteboard) -> PasteboardSnapshot {
+        guard let items = pasteboard.pasteboardItems else {
+            return PasteboardSnapshot(
+                changeCount: pasteboard.changeCount,
+                string: pasteboard.string(forType: .string),
+                items: []
+            )
+        }
+
+        let snapshotItems: [PasteboardSnapshotItem] = items.compactMap { item in
+            let representations: [(type: NSPasteboard.PasteboardType, data: Data)] = item.types.compactMap { type in
+                guard let data = item.data(forType: type) else { return nil }
+                return (type: type, data: data)
+            }
+
+            guard !representations.isEmpty else { return nil }
+            return PasteboardSnapshotItem(representations: representations)
+        }
+
+        return PasteboardSnapshot(
+            changeCount: pasteboard.changeCount,
+            string: pasteboard.string(forType: .string),
+            items: snapshotItems
+        )
+    }
+
+    private func restorePasteboard(_ snapshot: PasteboardSnapshot, to pasteboard: NSPasteboard) {
+        guard pasteboard.changeCount != snapshot.changeCount else { return }
+
+        pasteboard.clearContents()
+
+        if let string = snapshot.string {
+            pasteboard.setString(string, forType: .string)
+            return
+        }
+
+        guard !snapshot.items.isEmpty else { return }
+
+        let restoredItems = snapshot.items.map { snapshotItem -> NSPasteboardItem in
+            let item = NSPasteboardItem()
+            snapshotItem.representations.forEach { representation in
+                item.setData(representation.data, forType: representation.type)
+            }
+            return item
+        }
+
+        pasteboard.writeObjects(restoredItems)
     }
 
     private func sanitizedExpansionText(_ text: String) -> String {
