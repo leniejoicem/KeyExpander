@@ -21,12 +21,17 @@ final class TextEngine {
     }
 
     private struct PasteboardSnapshot {
-        let changeCount: Int
         let string: String?
         let items: [PasteboardSnapshotItem]
     }
 
     static let shared = TextEngine()
+
+    /// Stamped on every event we post so the key listener can ignore our own keystrokes.
+    static let syntheticEventTag: Int64 = 0x4B455850 // "KEXP"
+
+    /// How long the target app gets to read the snippet off the pasteboard before we restore it.
+    private let pasteboardRestoreDelay: TimeInterval = 0.5
 
     private let repo = SnippetRepository()
     private var cache: [CachedSnippet] = []
@@ -35,7 +40,6 @@ final class TextEngine {
     private var isExpanding = false
 
     var isEnabled = true
-    var isCurrentlyExpanding: Bool { isExpanding }
 
     private init() {
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -67,7 +71,7 @@ final class TextEngine {
     }
 
     func handleTyped(character: String) {
-        guard isEnabled, !isExpanding else { return }
+        guard isEnabled else { return }
 
         if character == "\u{8}" {
             if !buffer.isEmpty { buffer.removeLast() }
@@ -80,11 +84,13 @@ final class TextEngine {
         }
     }
 
+    /// Forget what was typed, e.g. after a click or cursor movement puts the caret somewhere else.
+    func resetBuffer() {
+        buffer = ""
+    }
+
     func handleDelimiter(isNewline: Bool) -> Bool {
         guard isEnabled, !isExpanding else { return false }
-
-        print("🔎 buffer:", buffer)
-        print("🔎 keys:", cache.map(\.trigger))
 
         let sortedSnippets = cache.sorted { $0.trigger.count > $1.trigger.count }
 
@@ -110,11 +116,24 @@ final class TextEngine {
     }
 
     private func matchesCurrentBuffer(_ snippet: CachedSnippet) -> Bool {
-        if snippet.caseSensitive {
-            return buffer.hasSuffix(snippet.trigger)
-        }
+        let trigger = snippet.trigger
+        guard !trigger.isEmpty, buffer.count >= trigger.count else { return false }
 
-        return buffer.lowercased().hasSuffix(snippet.trigger.lowercased())
+        let start = buffer.index(buffer.endIndex, offsetBy: -trigger.count)
+        let typed = buffer[start...]
+
+        let matches = snippet.caseSensitive
+            ? typed == trigger
+            : typed.caseInsensitiveCompare(trigger) == .orderedSame
+        guard matches else { return false }
+
+        // A trigger that starts with a letter or digit must not fire in the middle of a word
+        // (e.g. "hi" inside "chi"). Triggers like ";sig" can still fire anywhere.
+        guard let first = trigger.first, first.isLetter || first.isNumber,
+              start > buffer.startIndex else { return true }
+
+        let previous = buffer[buffer.index(before: start)]
+        return !(previous.isLetter || previous.isNumber)
     }
 
     private func deleteBackspaces(count: Int) {
@@ -130,6 +149,7 @@ final class TextEngine {
 
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+        let snippetChangeCount = pasteboard.changeCount
 
         let src = CGEventSource(stateID: .combinedSessionState)
 
@@ -142,13 +162,11 @@ final class TextEngine {
 
         let cmdUp = CGEvent(keyboardEventSource: src, virtualKey: 55, keyDown: false)
 
-        cmdDown?.post(tap: .cghidEventTap)
-        vDown?.post(tap: .cghidEventTap)
-        vUp?.post(tap: .cghidEventTap)
-        cmdUp?.post(tap: .cghidEventTap)
+        [cmdDown, vDown, vUp, cmdUp].forEach { postSynthetic($0) }
 
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + pasteboardRestoreDelay) {
+            // If something else was copied in the meantime, leave it alone.
+            guard pasteboard.changeCount == snippetChangeCount else { return }
             self.restorePasteboard(snapshot, to: pasteboard)
         }
     }
@@ -156,7 +174,6 @@ final class TextEngine {
     private func makePasteboardSnapshot(from pasteboard: NSPasteboard) -> PasteboardSnapshot {
         guard let items = pasteboard.pasteboardItems else {
             return PasteboardSnapshot(
-                changeCount: pasteboard.changeCount,
                 string: pasteboard.string(forType: .string),
                 items: []
             )
@@ -173,23 +190,22 @@ final class TextEngine {
         }
 
         return PasteboardSnapshot(
-            changeCount: pasteboard.changeCount,
             string: pasteboard.string(forType: .string),
             items: snapshotItems
         )
     }
 
     private func restorePasteboard(_ snapshot: PasteboardSnapshot, to pasteboard: NSPasteboard) {
-        guard pasteboard.changeCount != snapshot.changeCount else { return }
-
         pasteboard.clearContents()
 
-        if let string = snapshot.string {
-            pasteboard.setString(string, forType: .string)
+        // Restore every item with all its representations (rich text, images, file URLs, ...).
+        // Plain string is only a fallback for when no item data could be captured.
+        guard !snapshot.items.isEmpty else {
+            if let string = snapshot.string {
+                pasteboard.setString(string, forType: .string)
+            }
             return
         }
-
-        guard !snapshot.items.isEmpty else { return }
 
         let restoredItems = snapshot.items.map { snapshotItem -> NSPasteboardItem in
             let item = NSPasteboardItem()
@@ -203,11 +219,10 @@ final class TextEngine {
     }
 
     private func sanitizedExpansionText(_ text: String) -> String {
+        // Normalize line endings only; indentation inside the snippet is intentional.
         text
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .joined(separator: "\n")
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
     }
 
     private func reinsertDelimiter(isNewline: Bool, delay: TimeInterval = 0) {
@@ -230,7 +245,13 @@ final class TextEngine {
         let src = CGEventSource(stateID: .combinedSessionState)
         let down = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: true)
         let up = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: false)
-        down?.post(tap: .cghidEventTap)
-        up?.post(tap: .cghidEventTap)
+        postSynthetic(down)
+        postSynthetic(up)
+    }
+
+    private func postSynthetic(_ event: CGEvent?) {
+        guard let event else { return }
+        event.setIntegerValueField(.eventSourceUserData, value: Self.syntheticEventTag)
+        event.post(tap: .cghidEventTap)
     }
 }

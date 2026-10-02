@@ -32,8 +32,14 @@ final class CategoryRepository {
     }
  
     func delete(id: Int64) throws {
-        let row = categories.filter(self.id == id)
-        try db.run(row.delete())
+        let snippets = Table("snippets")
+        let snippetCategoryId = Expression<Int64?>("category_id")
+
+        // Move the category's snippets to "Uncategorized" so they don't point at a missing row.
+        try db.transaction {
+            try db.run(snippets.filter(snippetCategoryId == id).update(snippetCategoryId <- nil))
+            try db.run(categories.filter(self.id == id).delete())
+        }
     }
 }
  

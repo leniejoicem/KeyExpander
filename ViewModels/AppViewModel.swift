@@ -88,6 +88,14 @@ final class AppViewModel: ObservableObject {
         return categories.first(where: { $0.id == id })?.name ?? "Unknown"
     }
  
+    /// Category label for a snippet row; nil or deleted categories read as "Uncategorized".
+    func snippetCategoryName(for id: Int64?) -> String {
+        guard let id, let category = categories.first(where: { $0.id == id }) else {
+            return "Uncategorized"
+        }
+        return category.name
+    }
+
     func categoryIcon(for id: Int64?) -> String {
         guard let id else { return "tray.full" }
         return categories.first(where: { $0.id == id })?.icon ?? "folder"
@@ -99,18 +107,29 @@ final class AppViewModel: ObservableObject {
     }
  
  
-    func addSnippet(_ draft: SnippetDraft) {
+    @discardableResult
+    func addSnippet(_ draft: SnippetDraft) -> Bool {
+        if let message = triggerConflictMessage(for: draft.trigger, excluding: nil) {
+            errorMessage = message
+            return false
+        }
         do {
             try snipRepo.add(draft)
             notifySnippetsChanged()
             bannerMessage = "Snippet created."
             refresh()
+            return true
         } catch {
             errorMessage = presentableMessage(for: error)
+            return false
         }
     }
  
     func updateSnippet(id: Int64, draft: SnippetDraft) {
+        if let message = triggerConflictMessage(for: draft.trigger, excluding: id) {
+            errorMessage = message
+            return
+        }
         do {
             try snipRepo.update(id: id, draft: draft)
             notifySnippetsChanged()   // FIX #8
@@ -165,6 +184,15 @@ final class AppViewModel: ObservableObject {
         }
     }
  
+    /// The DB's UNIQUE constraint is case-sensitive, but case-insensitive snippets would make
+    /// ";sig" and ";SIG" ambiguous, so reject triggers that differ only by case.
+    private func triggerConflictMessage(for trigger: String, excluding id: Int64?) -> String? {
+        let clash = snippets.contains {
+            $0.id != id && $0.trigger.caseInsensitiveCompare(trigger) == .orderedSame
+        }
+        return clash ? "That trigger is already in use. Choose a different one." : nil
+    }
+
     private func notifySnippetsChanged() {
         NotificationCenter.default.post(name: .snippetsDidChange, object: nil)
     }

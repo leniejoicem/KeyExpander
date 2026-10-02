@@ -139,7 +139,7 @@ private struct SnippetRowButton: View {
         } label: {
             SnippetRow(
                 snippet: snippet,
-                categoryName: vm.categoryName(for: snippet.categoryId),
+                categoryName: vm.snippetCategoryName(for: snippet.categoryId),
                 isSelected: vm.selectedSnippetId == snippet.id
             )
             .contentShape(Rectangle())
