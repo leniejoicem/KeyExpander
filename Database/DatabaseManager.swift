@@ -25,6 +25,8 @@ extension Connection {
 final class DatabaseManager {
     static let shared = DatabaseManager()
     let db: Connection
+    /// False when the on-disk database couldn't be opened and nothing will be saved.
+    let isPersistent: Bool
 
     private init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -33,11 +35,13 @@ final class DatabaseManager {
         let dbURL = appSupport.appendingPathComponent("keyexpander.sqlite")
         do {
             db = try Connection(dbURL.path)
+            isPersistent = true
         } catch {
             // Keep the app usable (with nothing persisted) instead of crashing on launch.
             print("❌ Failed to open database at \(dbURL.path):", error)
             do {
                 db = try Connection(.inMemory)
+                isPersistent = false
             } catch {
                 fatalError("Could not open even an in-memory SQLite database: \(error)")
             }

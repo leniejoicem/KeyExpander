@@ -36,7 +36,8 @@ final class StatusBarController {
     @objc private func openApp() {
         NSApp.activate(ignoringOtherApps: true)
 
-        if let window = NSApp.windows.first(where: { $0.canBecomeMain }) {
+        if let window = NSApp.windows.first(where: { $0.canBecomeMain && ($0.isVisible || $0.isMiniaturized) }) {
+            if window.isMiniaturized { window.deminiaturize(nil) }
             window.makeKeyAndOrderFront(nil)
         } else {
             // The main window was closed; reopening the bundle makes SwiftUI create a new one.

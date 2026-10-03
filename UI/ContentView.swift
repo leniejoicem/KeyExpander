@@ -91,6 +91,9 @@ struct ContentView: View {
             guard !didLoad else { return }
             didLoad = true
             await vm.loadAll()
+            if !DatabaseManager.shared.isPersistent {
+                vm.errorMessage = "Your snippet library couldn't be opened, so changes made now won't be saved. Try restarting KeyExpander."
+            }
         }
         .sheet(isPresented: $showNewSnippet)  { NewSnippetSheet(vm: vm) }
         .alert("New Category", isPresented: $showNewCategoryPrompt) {

@@ -29,6 +29,12 @@ struct SnippetEditorView: View {
         .onChange(of: vm.selectedSnippetId) {
             DispatchQueue.main.async { syncDraftFromSelection() }
         }
+        .onChange(of: vm.categories) {
+            // The draft's category was deleted; saving it would point the snippet at a missing row.
+            if let id = draft.categoryId, !vm.categories.contains(where: { $0.id == id }) {
+                draft.categoryId = nil
+            }
+        }
     }
 
     private var emptyState: some View {

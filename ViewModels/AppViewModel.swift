@@ -198,13 +198,15 @@ final class AppViewModel: ObservableObject {
     }
 
     private func presentableMessage(for error: Error) -> String {
-        let message = error.localizedDescription.lowercased()
+        // SQLite.swift errors only carry the SQLite message ("UNIQUE constraint failed: snippets.trigger")
+        // in their description; localizedDescription is a generic Cocoa string.
+        let message = String(describing: error).lowercased()
 
-        if message.contains("unique") && message.contains("trigger") {
+        if message.contains("unique constraint failed: snippets.trigger") {
             return "That trigger is already in use. Choose a different one."
         }
 
-        if message.contains("unique") && message.contains("name") {
+        if message.contains("unique constraint failed: categories.name") {
             return "That category name already exists."
         }
 
