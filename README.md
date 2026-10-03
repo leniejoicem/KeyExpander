@@ -69,6 +69,15 @@ This local database is not part of the repository.
 - `Repositories/` database access
 - `Database/` SQLite setup and migrations
 - `Models/` app data models
+- `Tests/` logic tests
+
+## Running Tests
+
+```bash
+Tests/run-tests.sh
+```
+
+This compiles the app's real source files with `Tests/main.swift` and checks trigger matching, key handling, clipboard save/restore, database migrations and category deletion. It uses a temporary home folder, so your own snippet library is never touched. It doesn't type or touch your clipboard, so live expansion still needs a manual check in the running app.
 
 ## Notes
 

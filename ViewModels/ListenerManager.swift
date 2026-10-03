@@ -45,7 +45,13 @@ final class ListenerManager: ObservableObject {
         }
     }
  
+    /// Call once macOS permissions are granted so the listener starts, unless the user turned it off.
+    func permissionsGranted() {
+        apply()
+    }
+
     private func apply() {
+        TextEngine.shared.isEnabled = isEnabled
         if isEnabled {
             TextEngine.shared.reloadSnippets()
             GlobalKeyListener.shared.start()

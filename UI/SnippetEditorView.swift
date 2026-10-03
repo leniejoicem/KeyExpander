@@ -29,6 +29,12 @@ struct SnippetEditorView: View {
         .onChange(of: vm.selectedSnippetId) {
             DispatchQueue.main.async { syncDraftFromSelection() }
         }
+        .onChange(of: vm.categories) {
+            // The draft's category was deleted; saving it would point the snippet at a missing row.
+            if let id = draft.categoryId, !vm.categories.contains(where: { $0.id == id }) {
+                draft.categoryId = nil
+            }
+        }
     }
 
     private var emptyState: some View {
@@ -65,10 +71,8 @@ struct SnippetEditorView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
 
-                            Picker("Category", selection: Binding(
-                                get: { draft.categoryId ?? vm.categories.first?.id },
-                                set: { draft.categoryId = $0 }
-                            )) {
+                            Picker("Category", selection: $draft.categoryId) {
+                                Text("Uncategorized").tag(Int64?.none)
                                 ForEach(vm.categories) { c in
                                     Text(c.name).tag(Optional(c.id))
                                 }
@@ -236,13 +240,15 @@ struct SnippetEditorView: View {
         var d = draft
         d.title = d.title.trimmingCharacters(in: .whitespacesAndNewlines)
         d.trigger = d.trigger.trimmingCharacters(in: .whitespacesAndNewlines)
-        d.content = d.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Only drop surrounding blank lines; leading spaces are the snippet's indentation.
+        d.content = d.content.trimmingCharacters(in: .newlines)
         return d
     }
 
     private var canSaveSnippet: Bool {
         let normalized = normalizedDraft()
-        return !normalized.trigger.isEmpty && !normalized.content.isEmpty
+        return !normalized.trigger.isEmpty
+            && !normalized.content.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     private var editorBackground: some View {

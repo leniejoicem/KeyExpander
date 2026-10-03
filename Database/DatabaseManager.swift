@@ -25,13 +25,27 @@ extension Connection {
 final class DatabaseManager {
     static let shared = DatabaseManager()
     let db: Connection
+    /// False when the on-disk database couldn't be opened and nothing will be saved.
+    let isPersistent: Bool
 
     private init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
 
         let dbURL = appSupport.appendingPathComponent("keyexpander.sqlite")
-        db = try! Connection(dbURL.path)
+        do {
+            db = try Connection(dbURL.path)
+            isPersistent = true
+        } catch {
+            // Keep the app usable (with nothing persisted) instead of crashing on launch.
+            print("❌ Failed to open database at \(dbURL.path):", error)
+            do {
+                db = try Connection(.inMemory)
+                isPersistent = false
+            } catch {
+                fatalError("Could not open even an in-memory SQLite database: \(error)")
+            }
+        }
 
         createOrMigrate()
     }
@@ -105,6 +119,17 @@ final class DatabaseManager {
             }
         } catch {
             print("❌ snippets migrate:", error)
+        }
+
+        do {
+            // Snippets left behind by category deletes before they were cleaned up.
+            try db.run("""
+                UPDATE snippets SET category_id = NULL
+                WHERE category_id IS NOT NULL
+                  AND category_id NOT IN (SELECT id FROM categories)
+                """)
+        } catch {
+            print("❌ orphaned snippets cleanup:", error)
         }
 
         do {

@@ -16,26 +16,22 @@ final class TextEngine {
         let caseSensitive: Bool
     }
 
-    private struct PasteboardSnapshotItem {
-        let representations: [(type: NSPasteboard.PasteboardType, data: Data)]
-    }
-
-    private struct PasteboardSnapshot {
-        let changeCount: Int
-        let string: String?
-        let items: [PasteboardSnapshotItem]
-    }
-
     static let shared = TextEngine()
 
+    /// Stamped on every event we post so the key listener can ignore our own keystrokes.
+    static let syntheticEventTag: Int64 = 0x4B455850 // "KEXP"
+
+    /// How long the target app gets to read the snippet off the pasteboard before we restore it.
+    private let pasteboardRestoreDelay: TimeInterval = 0.5
+
     private let repo = SnippetRepository()
+    /// Longest trigger first, so ";sig2" wins over ";sig".
     private var cache: [CachedSnippet] = []
 
     private var buffer = ""
     private var isExpanding = false
 
     var isEnabled = true
-    var isCurrentlyExpanding: Bool { isExpanding }
 
     private init() {
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -60,6 +56,7 @@ final class TextEngine {
                         caseSensitive: $0.caseSensitive
                     )
                 }
+                .sorted { $0.trigger.count > $1.trigger.count }
             print("✅ Loaded \(cache.count) enabled snippets into cache")
         } catch {
             print("❌ Failed to load snippets:", error)
@@ -67,7 +64,7 @@ final class TextEngine {
     }
 
     func handleTyped(character: String) {
-        guard isEnabled, !isExpanding else { return }
+        guard isEnabled else { return }
 
         if character == "\u{8}" {
             if !buffer.isEmpty { buffer.removeLast() }
@@ -80,56 +77,91 @@ final class TextEngine {
         }
     }
 
+    /// Forget what was typed, e.g. after a click or cursor movement puts the caret somewhere else.
+    func resetBuffer() {
+        buffer = ""
+    }
+
+    /// Called from the event tap for Space/Return. Returns true when the delimiter was consumed
+    /// because an expansion is starting.
     func handleDelimiter(isNewline: Bool) -> Bool {
         guard isEnabled, !isExpanding else { return false }
 
-        print("🔎 buffer:", buffer)
-        print("🔎 keys:", cache.map(\.trigger))
-
-        let sortedSnippets = cache.sorted { $0.trigger.count > $1.trigger.count }
-
-        guard let match = sortedSnippets.first(where: matchesCurrentBuffer) else {
+        guard let match = cache.first(where: {
+            Self.triggerMatches($0.trigger, buffer: buffer, caseSensitive: $0.caseSensitive)
+        }) else {
             return false
         }
 
         isExpanding = true
-
-        deleteBackspaces(count: match.trigger.count)
-
-        pasteText(sanitizedExpansionText(match.content))
-        reinsertDelimiter(isNewline: isNewline, delay: 0.05)
-        recordExpansionUsage(for: match.id)
-
         buffer = ""
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.isExpanding = false
+        // Do the slow part (pasteboard snapshot, posting events, DB write) outside the event tap
+        // callback; macOS disables taps whose callbacks take too long.
+        DispatchQueue.main.async { [weak self] in
+            self?.expand(match, isNewline: isNewline)
         }
 
         return true
     }
 
-    private func matchesCurrentBuffer(_ snippet: CachedSnippet) -> Bool {
-        if snippet.caseSensitive {
-            return buffer.hasSuffix(snippet.trigger)
-        }
+    private func expand(_ match: CachedSnippet, isNewline: Bool) {
+        deleteBackspaces(count: match.trigger.count)
+        pasteText(Self.sanitizedExpansionText(match.content))
+        reinsertDelimiter(isNewline: isNewline, delay: 0.05)
+        recordExpansionUsage(for: match.id)
 
-        return buffer.lowercased().hasSuffix(snippet.trigger.lowercased())
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.isExpanding = false
+        }
+    }
+
+    /// True when `buffer` ends with `trigger`. A trigger that starts with a letter or digit must
+    /// also start a word, so "hi" doesn't fire inside "chi"; triggers like ";sig" fire anywhere.
+    static func triggerMatches(_ trigger: String, buffer: String, caseSensitive: Bool) -> Bool {
+        guard !trigger.isEmpty, buffer.count >= trigger.count else { return false }
+
+        let start = buffer.index(buffer.endIndex, offsetBy: -trigger.count)
+        let typed = buffer[start...]
+
+        let matches = caseSensitive
+            ? typed == trigger
+            : typed.caseInsensitiveCompare(trigger) == .orderedSame
+        guard matches else { return false }
+
+        guard let first = trigger.first, first.isLetter || first.isNumber,
+              start > buffer.startIndex else { return true }
+
+        let previous = buffer[buffer.index(before: start)]
+        return !(previous.isLetter || previous.isNumber)
+    }
+
+    static func sanitizedExpansionText(_ text: String) -> String {
+        // Normalize line endings only; indentation inside the snippet is intentional.
+        text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
     }
 
     private func deleteBackspaces(count: Int) {
         guard count > 0 else { return }
         for _ in 0..<count {
-            pressKey(keyCode: 51) 
+            pressKey(keyCode: 51)
         }
     }
 
     private func pasteText(_ text: String) {
         let pasteboard = NSPasteboard.general
-        let snapshot = makePasteboardSnapshot(from: pasteboard)
+        let snapshot = PasteboardSnapshot.capture(from: pasteboard)
 
         pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
+        let item = NSPasteboardItem()
+        item.setString(text, forType: .string)
+        // Ask clipboard managers (Maccy, Raycast, Paste, ...) not to record the expansion.
+        item.setString("", forType: .transient)
+        item.setString("", forType: .autoGenerated)
+        pasteboard.writeObjects([item])
+        let snippetChangeCount = pasteboard.changeCount
 
         let src = CGEventSource(stateID: .combinedSessionState)
 
@@ -142,72 +174,13 @@ final class TextEngine {
 
         let cmdUp = CGEvent(keyboardEventSource: src, virtualKey: 55, keyDown: false)
 
-        cmdDown?.post(tap: .cghidEventTap)
-        vDown?.post(tap: .cghidEventTap)
-        vUp?.post(tap: .cghidEventTap)
-        cmdUp?.post(tap: .cghidEventTap)
+        [cmdDown, vDown, vUp, cmdUp].forEach { postSynthetic($0) }
 
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            self.restorePasteboard(snapshot, to: pasteboard)
+        DispatchQueue.main.asyncAfter(deadline: .now() + pasteboardRestoreDelay) {
+            // If something else was copied in the meantime, leave it alone.
+            guard pasteboard.changeCount == snippetChangeCount else { return }
+            snapshot.restore(to: pasteboard)
         }
-    }
-
-    private func makePasteboardSnapshot(from pasteboard: NSPasteboard) -> PasteboardSnapshot {
-        guard let items = pasteboard.pasteboardItems else {
-            return PasteboardSnapshot(
-                changeCount: pasteboard.changeCount,
-                string: pasteboard.string(forType: .string),
-                items: []
-            )
-        }
-
-        let snapshotItems: [PasteboardSnapshotItem] = items.compactMap { item in
-            let representations: [(type: NSPasteboard.PasteboardType, data: Data)] = item.types.compactMap { type in
-                guard let data = item.data(forType: type) else { return nil }
-                return (type: type, data: data)
-            }
-
-            guard !representations.isEmpty else { return nil }
-            return PasteboardSnapshotItem(representations: representations)
-        }
-
-        return PasteboardSnapshot(
-            changeCount: pasteboard.changeCount,
-            string: pasteboard.string(forType: .string),
-            items: snapshotItems
-        )
-    }
-
-    private func restorePasteboard(_ snapshot: PasteboardSnapshot, to pasteboard: NSPasteboard) {
-        guard pasteboard.changeCount != snapshot.changeCount else { return }
-
-        pasteboard.clearContents()
-
-        if let string = snapshot.string {
-            pasteboard.setString(string, forType: .string)
-            return
-        }
-
-        guard !snapshot.items.isEmpty else { return }
-
-        let restoredItems = snapshot.items.map { snapshotItem -> NSPasteboardItem in
-            let item = NSPasteboardItem()
-            snapshotItem.representations.forEach { representation in
-                item.setData(representation.data, forType: representation.type)
-            }
-            return item
-        }
-
-        pasteboard.writeObjects(restoredItems)
-    }
-
-    private func sanitizedExpansionText(_ text: String) -> String {
-        text
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .joined(separator: "\n")
     }
 
     private func reinsertDelimiter(isNewline: Bool, delay: TimeInterval = 0) {
@@ -230,7 +203,58 @@ final class TextEngine {
         let src = CGEventSource(stateID: .combinedSessionState)
         let down = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: true)
         let up = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: false)
-        down?.post(tap: .cghidEventTap)
-        up?.post(tap: .cghidEventTap)
+        postSynthetic(down)
+        postSynthetic(up)
     }
+
+    private func postSynthetic(_ event: CGEvent?) {
+        guard let event else { return }
+        event.setIntegerValueField(.eventSourceUserData, value: Self.syntheticEventTag)
+        event.post(tap: .cghidEventTap)
+    }
+}
+
+/// A copy of everything on a pasteboard, so it can be put back after we borrow it for a paste.
+struct PasteboardSnapshot {
+    let string: String?
+    let items: [[(type: NSPasteboard.PasteboardType, data: Data)]]
+
+    static func capture(from pasteboard: NSPasteboard) -> PasteboardSnapshot {
+        let items = (pasteboard.pasteboardItems ?? []).compactMap { item -> [(type: NSPasteboard.PasteboardType, data: Data)]? in
+            let representations = item.types.compactMap { type -> (type: NSPasteboard.PasteboardType, data: Data)? in
+                guard let data = item.data(forType: type) else { return nil }
+                return (type: type, data: data)
+            }
+            return representations.isEmpty ? nil : representations
+        }
+
+        return PasteboardSnapshot(string: pasteboard.string(forType: .string), items: items)
+    }
+
+    func restore(to pasteboard: NSPasteboard) {
+        pasteboard.clearContents()
+
+        // Restore every item with all its representations (rich text, images, file URLs, ...).
+        // Plain string is only a fallback for when no item data could be captured.
+        guard !items.isEmpty else {
+            if let string {
+                pasteboard.setString(string, forType: .string)
+            }
+            return
+        }
+
+        let restoredItems = items.map { representations -> NSPasteboardItem in
+            let item = NSPasteboardItem()
+            representations.forEach { item.setData($0.data, forType: $0.type) }
+            return item
+        }
+
+        pasteboard.writeObjects(restoredItems)
+    }
+}
+
+extension NSPasteboard.PasteboardType {
+    /// nspasteboard.org markers that clipboard managers honor.
+    static let transient = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
+    static let autoGenerated = NSPasteboard.PasteboardType("org.nspasteboard.AutoGeneratedType")
 }

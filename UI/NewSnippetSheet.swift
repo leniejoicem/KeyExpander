@@ -13,6 +13,7 @@ struct NewSnippetSheet: View {
     @ObservedObject var vm: AppViewModel
     
     @State private var draft = SnippetDraft()
+    @State private var createError: String?
     
     private var defaultCategoryId: Int64? {
         vm.selectedCategoryId ?? vm.categories.first?.id
@@ -61,6 +62,11 @@ struct NewSnippetSheet: View {
             .formStyle(.grouped)
             
             HStack {
+                if let createError {
+                    Text(createError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
                 Spacer()
                 Button("Cancel") { dismiss() }
                 
@@ -69,10 +75,16 @@ struct NewSnippetSheet: View {
                     if normalized.categoryId == nil {
                         normalized.categoryId = defaultCategoryId
                     }
-                    guard !normalized.trigger.isEmpty, !normalized.content.isEmpty else { return }
+                    guard canCreateSnippet else { return }
                     Task { @MainActor in
-                        vm.addSnippet(normalized)
-                        dismiss()
+                        // Keep the sheet open on failure so the user doesn't lose what they typed.
+                        if vm.addSnippet(normalized) {
+                            dismiss()
+                        } else {
+                            // Show it here; the main window's alert can't appear over this sheet.
+                            createError = vm.errorMessage
+                            vm.errorMessage = nil
+                        }
                     }
                 }
                 .keyboardShortcut(.defaultAction)
@@ -81,6 +93,9 @@ struct NewSnippetSheet: View {
         }
         .padding(16)
         .frame(width: 640, height: 520)
+        .onChange(of: draft) {
+            createError = nil
+        }
         .onAppear {
             if draft.categoryId == nil {
                 draft.categoryId = defaultCategoryId
@@ -92,12 +107,14 @@ struct NewSnippetSheet: View {
         var x = d
         x.title = x.title.trimmingCharacters(in: .whitespacesAndNewlines)
         x.trigger = x.trigger.trimmingCharacters(in: .whitespacesAndNewlines)
-        x.content = x.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Only drop surrounding blank lines; leading spaces are the snippet's indentation.
+        x.content = x.content.trimmingCharacters(in: .newlines)
         return x
     }
 
     private var canCreateSnippet: Bool {
         let normalized = normalizedDraft(draft)
-        return !normalized.trigger.isEmpty && !normalized.content.isEmpty
+        return !normalized.trigger.isEmpty
+            && !normalized.content.trimmingCharacters(in: .whitespaces).isEmpty
     }
 }
