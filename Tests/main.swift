@@ -133,6 +133,43 @@ expect((pb.pasteboardItems ?? []).isEmpty, "empty clipboard stays empty")
 // transient marker types are well-formed
 expect(NSPasteboard.PasteboardType.transient.rawValue == "org.nspasteboard.TransientType", "transient type id")
 
+// ---------- 4b. clipboard lending across expansions ----------
+section("clipboard lending")
+let lender = ClipboardLender(pasteboard: pb)
+func clip() -> String? { pb.string(forType: .string) }
+// one expansion
+pb.clearContents(); pb.setString("user copy", forType: .string)
+let l1 = lender.lend("SNIP")
+expect(clip() == "SNIP", "snippet is on the clipboard during the paste")
+lender.giveBack(l1)
+expect(clip() == "user copy", "single expansion: clipboard restored")
+// second expansion before the first restore fires
+pb.clearContents(); pb.setString("user copy", forType: .string)
+let a = lender.lend("SNIP"), b = lender.lend("SNIP")
+lender.giveBack(a)
+expect(clip() == "SNIP", "older loan doesn't restore while a newer paste is running")
+lender.giveBack(b)
+expect(clip() == "user copy", "overlapping expansions: user's clipboard restored, not the snippet", String(describing: clip()))
+// another app rewrites the same text (changeCount bumps, content doesn't)
+pb.clearContents(); pb.setString("user copy", forType: .string)
+let c = lender.lend("SNIP")
+pb.clearContents(); pb.setString("SNIP", forType: .string)
+lender.giveBack(c)
+expect(clip() == "user copy", "pasteboard rewritten with the same snippet: still restored", String(describing: clip()))
+// user copies something new before the restore
+pb.clearContents(); pb.setString("user copy", forType: .string)
+let d = lender.lend("SNIP")
+pb.clearContents(); pb.setString("fresh copy", forType: .string)
+lender.giveBack(d)
+expect(clip() == "fresh copy", "a copy made during the paste is kept")
+// user copies, then expands again before the first restore
+pb.clearContents(); pb.setString("user copy", forType: .string)
+let e = lender.lend("SNIP")
+pb.clearContents(); pb.setString("fresh copy", forType: .string)
+let f = lender.lend("SNIP")
+lender.giveBack(e); lender.giveBack(f)
+expect(clip() == "fresh copy", "copy between two expansions is what comes back", String(describing: clip()))
+
 // ---------- 5. database: migration + orphan cleanup (pre-seeded legacy file) ----------
 section("database")
 let dbm = DatabaseManager.shared
